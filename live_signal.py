@@ -3,12 +3,16 @@ import pandas as pd
 from ta.trend import EMAIndicator
 
 
-exchange = ccxt.binance()
+exchange = ccxt.binance({
+    "enableRateLimit": True,
+    "options": {
+        "defaultType": "spot"
+    }
+})
 
+exchange.load_markets = lambda: None
 
 SYMBOL = "SOL/USDT"
-
-
 
 def load_data(
     timeframe="1h",

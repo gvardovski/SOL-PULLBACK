@@ -85,7 +85,16 @@ refresh_count = st_autorefresh(
     interval=30 * 1000,  # 30 seconds
     key="sol_dashboard_refresh"
 )
-engine_tick()
+
+try:
+    engine_tick()
+
+except Exception as e:
+
+    st.error(
+        f"Engine error: {e}"
+    )
+
 # =====================================================
 # PATHS
 # =====================================================
