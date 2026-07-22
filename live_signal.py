@@ -1,192 +1,152 @@
 import ccxt
 import pandas as pd
-import requests
-from ta.trend import EMAIndicator
+from ta.trend import EMAIndicator, ADXIndicator
+from ta.volatility import AverageTrueRange
 
+# =====================================================
+# EXCHANGE
+# =====================================================
 
-def load_data(
-    timeframe="1h",
-    limit=200
-):
+exchange = ccxt.bybit({
+    "enableRateLimit": True
+})
 
-    url = "https://api.binance.com/api/v3/klines"
+SYMBOL = "SOL/USDT"
 
+# =====================================================
+# LOAD DATA
+# =====================================================
 
-    params = {
-        "symbol": "SOLUSDT",
-        "interval": timeframe,
-        "limit": limit
-    }
+def load_data(timeframe="1h", limit=300):
 
-
-    r = requests.get(
-        url,
-        params=params,
-        timeout=10
+    candles = exchange.fetch_ohlcv(
+        SYMBOL,
+        timeframe=timeframe,
+        limit=limit
     )
-
-    r.raise_for_status()
-
-
-    candles = r.json()
-
 
     df = pd.DataFrame(
         candles,
         columns=[
-            "time",
+            "timestamp",
             "open",
             "high",
             "low",
             "close",
-            "volume",
-            "close_time",
-            "quote_volume",
-            "trades",
-            "buy_volume",
-            "buy_quote",
-            "ignore"
+            "volume"
         ]
     )
 
-
-    df["time"] = pd.to_datetime(
-        df["time"],
+    df["timestamp"] = pd.to_datetime(
+        df["timestamp"],
         unit="ms"
     )
 
+    df = df.set_index("timestamp")
 
-    numeric = [
-        "open",
-        "high",
-        "low",
-        "close",
-        "volume"
-    ]
+    return df
 
-    df[numeric] = df[numeric].astype(float)
-
-
-    return df.set_index("time")
-
+# =====================================================
+# SOL TREND PULLBACK V4
+# =====================================================
 
 def get_signal():
 
+    try:
 
-    df = load_data("1h")
+        # 1H data
+        df = load_data("1h", 300)
 
+        # 4H trend
+        df4 = load_data("4h", 200)
 
-    # indicators
+        # -------------------------
+        # 4H regime
+        # -------------------------
 
-    df["ma7"] = (
-        df.close
-        .rolling(7)
-        .mean()
-    )
+        ema50_4h = EMAIndicator(
+            df4["close"],
+            window=50
+        ).ema_indicator()
 
-    df["ma14"] = (
-        df.close
-        .rolling(14)
-        .mean()
-    )
+        ema200_4h = EMAIndicator(
+            df4["close"],
+            window=200
+        ).ema_indicator()
 
-    df["ma30"] = (
-        df.close
-        .rolling(30)
-        .mean()
-    )
+        bull_regime = (
+            ema50_4h.iloc[-1] > ema200_4h.iloc[-1]
+        )
 
+        # -------------------------
+        # 1H indicators
+        # -------------------------
 
+        df["ema20"] = EMAIndicator(
+            df["close"],
+            window=20
+        ).ema_indicator()
 
-    # 4H regime
+        df["ema50"] = EMAIndicator(
+            df["close"],
+            window=50
+        ).ema_indicator()
 
-    htf = load_data(
-        "4h",
-        300
-    )
+        df["atr"] = AverageTrueRange(
+            df["high"],
+            df["low"],
+            df["close"],
+            window=14
+        ).average_true_range()
 
+        df["adx"] = ADXIndicator(
+            df["high"],
+            df["low"],
+            df["close"],
+            window=14
+        ).adx()
 
-    htf["ema50"] = (
-        htf.close
-        .ewm(span=50)
-        .mean()
-    )
+        last = df.iloc[-1]
 
+        # -------------------------
+        # Conditions
+        # -------------------------
 
-    htf["ema200"] = (
-        htf.close
-        .ewm(span=200)
-        .mean()
-    )
+        trend = (
+            last["close"] > last["ema20"] > last["ema50"]
+        )
 
+        pullback = (
+            abs(last["close"] - last["ema20"]) / last["ema20"]
+        ) < 0.01
 
-    bull = (
-        htf.ema50.iloc[-1]
-        >
-        htf.ema200.iloc[-1]
-    )
+        momentum = last["adx"] > 25
 
+        buy = bull_regime and trend and pullback and momentum
 
+        return {
+            "symbol": SYMBOL,
+            "signal": "BUY" if buy else "WAIT",
+            "price": round(float(last["close"]), 2),
+            "regime": "BULL" if bull_regime else "BEAR",
+            "adx": round(float(last["adx"]), 1),
+            "ema20": round(float(last["ema20"]), 2),
+            "ema50": round(float(last["ema50"]), 2),
+            "atr": round(float(last["atr"]), 2),
+            "time": str(df.index[-1])
+        }
 
-    last = df.iloc[-1]
+    except Exception as e:
 
-
-    trend = (
-        last.ma7 >
-        last.ma14 >
-        last.ma30
-    )
-
-
-    pullback = (
-        last.low <= last.ma14
-    )
-
-
-    breakout = (
-        last.close >
-        last.ma7
-    )
-
-
-    if (
-        bull
-        and
-        trend
-        and
-        pullback
-        and
-        breakout
-    ):
-
-        signal="BUY"
-
-    else:
-
-        signal="WAIT"
-
-
-
-    return {
-
-        "price":
-            round(last.close,2),
-
-        "ma7":
-            round(last.ma7,2),
-
-        "ma14":
-            round(last.ma14,2),
-
-        "ma30":
-            round(last.ma30,2),
-
-        "regime":
-            "BULL"
-            if bull
-            else
-            "BEAR",
-
-        "signal":
-            signal
-    }
+        return {
+            "symbol": SYMBOL,
+            "signal": "ERROR",
+            "price": None,
+            "regime": "N/A",
+            "adx": None,
+            "ema20": None,
+            "ema50": None,
+            "atr": None,
+            "time": None,
+            "error": str(e)
+        }

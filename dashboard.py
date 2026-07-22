@@ -6,7 +6,6 @@ import json
 import hashlib
 from streamlit_autorefresh import st_autorefresh
 from datetime import datetime, UTC
-from live_signal import get_signal
 from paper_engine import load_position
 from dotenv import load_dotenv
 from cloud_engine import engine_tick
@@ -87,13 +86,11 @@ refresh_count = st_autorefresh(
 )
 
 try:
-    engine_tick()
+    signal = engine_tick()
 
 except Exception as e:
-
-    st.error(
-        f"Engine error: {e}"
-    )
+    st.error(f"Engine error: {e}")
+    st.stop()
 
 # =====================================================
 # PATHS
@@ -191,39 +188,75 @@ st.caption("Automatic Paper Trading Dashboard")
 
 st.header("📡 Live Signal")
 
-try:
-    signal = get_signal()
-except Exception as e:
-    st.error(f"Signal error: {e}")
-    st.stop()
+c1, c2, c3 = st.columns(3)
 
-c1, c2, c3, c4 = st.columns(4)
+# ---------- PRICE ----------
 
-c1.metric("SOL Price", f"${signal['price']:.2f}")
+price = signal.get("price")
 
-if signal.get("regime") == "BULL":
-    c2.success("🟢 BULL")
+if price is not None:
+    c1.metric("SOL Price", f"${price:.2f}")
 else:
-    c2.error("🔴 BEAR")
+    c1.metric("SOL Price", "N/A")
 
-if signal.get("signal") == "BUY":
+# ---------- REGIME ----------
+
+regime = signal.get("regime", "N/A")
+
+if regime == "BULL":
+    c2.success("🟢 BULL")
+elif regime == "BEAR":
+    c2.error("🔴 BEAR")
+else:
+    c2.warning("⚪ N/A")
+
+# ---------- SIGNAL ----------
+
+sig = signal.get("signal", "WAIT")
+
+if sig == "BUY":
     c3.success("🚀 BUY")
+elif sig == "ERROR":
+    c3.error("❌ ERROR")
 else:
     c3.info("WAIT")
 
-c4.metric("ADX", round(signal.get("adx", 0), 2))
+# ---------- ERROR MESSAGE ----------
+
+if sig == "ERROR":
+    st.error(signal.get("error", "Unknown error"))
 
 # =====================================================
 # INDICATORS
 # =====================================================
 
-st.subheader("Indicators")
+st.subheader("📈 Indicators")
 
-i1, i2, i3 = st.columns(3)
+c1, c2, c3, c4 = st.columns(4)
 
-i1.metric("MA7", round(signal.get("ma7", 0), 2))
-i2.metric("MA14", round(signal.get("ma14", 0), 2))
-i3.metric("MA30", round(signal.get("ma30", 0), 2))
+with c1:
+    st.metric(
+        "EMA20",
+        signal.get("ema20", "-")
+    )
+
+with c2:
+    st.metric(
+        "EMA50",
+        signal.get("ema50", "-")
+    )
+
+with c3:
+    st.metric(
+        "ADX",
+        signal.get("adx", "-")
+    )
+
+with c4:
+    st.metric(
+        "ATR",
+        signal.get("atr", "-")
+    )
 
 # =====================================================
 # PAPER POSITION
@@ -240,7 +273,11 @@ if position is None:
 else:
     st.success("🟢 LONG POSITION")
 
-    current_price = signal["price"]
+    current_price = signal.get("price")
+
+    if current_price is None:
+        st.warning("Live price unavailable")
+        st.stop()
 
     entry = float(position["entry"])
     quantity = float(position["quantity"])
