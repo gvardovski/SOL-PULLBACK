@@ -1,6 +1,5 @@
 import ccxt
 import pandas as pd
-import streamlit as st
 from ta.trend import EMAIndicator
 
 
@@ -45,7 +44,6 @@ def load_data(
     return df
 
 
-@st.cache_data(ttl=60)
 def get_signal():
 
 
