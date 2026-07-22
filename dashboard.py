@@ -9,6 +9,7 @@ from datetime import datetime, UTC
 from live_signal import get_signal
 from paper_engine import load_position
 from dotenv import load_dotenv
+from cloud_engine import engine_tick
 
 
 load_dotenv()
@@ -84,7 +85,7 @@ refresh_count = st_autorefresh(
     interval=30 * 1000,  # 30 seconds
     key="sol_dashboard_refresh"
 )
-
+engine_tick()
 # =====================================================
 # PATHS
 # =====================================================
