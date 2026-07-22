@@ -1,29 +1,34 @@
 import ccxt
 import pandas as pd
+import requests
 from ta.trend import EMAIndicator
 
-
-exchange = ccxt.binance({
-    "enableRateLimit": True,
-    "options": {
-        "defaultType": "spot"
-    }
-})
-
-exchange.load_markets = lambda: None
-
-SYMBOL = "SOL/USDT"
 
 def load_data(
     timeframe="1h",
     limit=200
 ):
 
-    candles = exchange.fetch_ohlcv(
-        SYMBOL,
-        timeframe=timeframe,
-        limit=limit
+    url = "https://api.binance.com/api/v3/klines"
+
+
+    params = {
+        "symbol": "SOLUSDT",
+        "interval": timeframe,
+        "limit": limit
+    }
+
+
+    r = requests.get(
+        url,
+        params=params,
+        timeout=10
     )
+
+    r.raise_for_status()
+
+
+    candles = r.json()
 
 
     df = pd.DataFrame(
@@ -34,7 +39,13 @@ def load_data(
             "high",
             "low",
             "close",
-            "volume"
+            "volume",
+            "close_time",
+            "quote_volume",
+            "trades",
+            "buy_volume",
+            "buy_quote",
+            "ignore"
         ]
     )
 
@@ -45,7 +56,18 @@ def load_data(
     )
 
 
-    return df
+    numeric = [
+        "open",
+        "high",
+        "low",
+        "close",
+        "volume"
+    ]
+
+    df[numeric] = df[numeric].astype(float)
+
+
+    return df.set_index("time")
 
 
 def get_signal():
