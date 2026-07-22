@@ -27,6 +27,25 @@ st.set_page_config(
 )
 
 # =====================================================
+# APP START TIME (STREAMLIT CLOUD SAFE)
+# =====================================================
+
+if "app_start_time" not in st.session_state:
+    st.session_state.app_start_time = datetime.now(UTC)
+
+start_time = st.session_state.app_start_time
+uptime = datetime.now(UTC) - start_time
+
+days = uptime.days
+hours, remainder = divmod(uptime.seconds, 3600)
+minutes, seconds = divmod(remainder, 60)
+
+if days > 0:
+    uptime_str = f"{days}d {hours:02d}:{minutes:02d}:{seconds:02d}"
+else:
+    uptime_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
+# =====================================================
 # AUTHENTICATION
 # =====================================================
 
@@ -101,35 +120,6 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 
 TRADES_FILE = os.path.join(DATA_DIR, "trades.csv")
 EQUITY_FILE = os.path.join(DATA_DIR, "equity.csv")
-SYSTEM_FILE = os.path.join(DATA_DIR, "system.json")
-
-# =====================================================
-# UPTIME
-# =====================================================
-
-uptime_str = "00:00:00"
-
-try:
-    if os.path.exists(SYSTEM_FILE):
-
-        with open(SYSTEM_FILE, "r") as f:
-            system = json.load(f)
-
-        start_time = datetime.fromisoformat(system["start_time"])
-
-        uptime = datetime.now(UTC) - start_time
-
-        days = uptime.days
-        hours, remainder = divmod(uptime.seconds, 3600)
-        minutes, seconds = divmod(remainder, 60)
-
-        if days > 0:
-            uptime_str = f"{days}d {hours:02d}:{minutes:02d}:{seconds:02d}"
-        else:
-            uptime_str = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
-
-except Exception as e:
-    uptime_str = f"error: {e}"
 
 # =====================================================
 # LOAD DATA

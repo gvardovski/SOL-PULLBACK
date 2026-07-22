@@ -7,14 +7,6 @@ import sys
 from datetime import datetime, UTC
 
 
-os.makedirs("data", exist_ok=True)
-
-with open("data/system.json", "w") as f:
-    json.dump(
-        {"start_time": datetime.now(UTC).isoformat()},
-        f
-    )
-
 # =====================================================
 # EXECUTION ENGINE THREAD
 # =====================================================
