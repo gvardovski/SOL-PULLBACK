@@ -7,11 +7,11 @@ from ta.volatility import AverageTrueRange
 # EXCHANGE
 # =====================================================
 
-exchange = ccxt.bybit({
+exchange = ccxt.kraken({
     "enableRateLimit": True
 })
 
-SYMBOL = "SOL/USDT"
+SYMBOL = "SOL/USD"
 
 # =====================================================
 # LOAD DATA
@@ -47,22 +47,28 @@ def load_data(timeframe="1h", limit=300):
     return df
 
 # =====================================================
-# SOL TREND PULLBACK V4
+# SIGNAL LOGIC
 # =====================================================
 
 def get_signal():
 
     try:
 
+        # -----------------------------
         # 1H data
+        # -----------------------------
+
         df = load_data("1h", 300)
 
-        # 4H trend
-        df4 = load_data("4h", 200)
+        # -----------------------------
+        # 4H data
+        # -----------------------------
 
-        # -------------------------
-        # 4H regime
-        # -------------------------
+        df4 = load_data("4h", 250)
+
+        # =================================================
+        # 4H REGIME
+        # =================================================
 
         ema50_4h = EMAIndicator(
             df4["close"],
@@ -78,9 +84,9 @@ def get_signal():
             ema50_4h.iloc[-1] > ema200_4h.iloc[-1]
         )
 
-        # -------------------------
-        # 1H indicators
-        # -------------------------
+        # =================================================
+        # 1H INDICATORS
+        # =================================================
 
         df["ema20"] = EMAIndicator(
             df["close"],
@@ -108,21 +114,33 @@ def get_signal():
 
         last = df.iloc[-1]
 
-        # -------------------------
-        # Conditions
-        # -------------------------
+        # =================================================
+        # STRATEGY CONDITIONS
+        # =================================================
 
         trend = (
-            last["close"] > last["ema20"] > last["ema50"]
+            last["close"] >
+            last["ema20"] >
+            last["ema50"]
         )
 
         pullback = (
-            abs(last["close"] - last["ema20"]) / last["ema20"]
+            abs(last["close"] - last["ema20"]) /
+            last["ema20"]
         ) < 0.01
 
         momentum = last["adx"] > 25
 
-        buy = bull_regime and trend and pullback and momentum
+        buy = (
+            bull_regime and
+            trend and
+            pullback and
+            momentum
+        )
+
+        # =================================================
+        # RETURN
+        # =================================================
 
         return {
             "symbol": SYMBOL,

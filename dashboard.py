@@ -418,5 +418,5 @@ else:
 # =====================================================
 
 st.caption(
-    "SOL Pullback v4 • Auto-refresh every 30s • Powered by CCXT + Streamlit"
+    "SOL Pullback v4 • Kraken live data • Auto-refresh every 30s • Paper Trading"
 )
